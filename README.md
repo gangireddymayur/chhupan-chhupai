@@ -205,6 +205,8 @@ Limits: the 14b comparisons are only 20 rounds each; everything is about this ga
 
 ## What is on the map
 
+![The whole village at night: houses with the roofs cut off, street lights, the pond, the minimap and the side panel](docs/screenshots/village.jpg)
+
 - Rampur village, 36 x 36 tiles: a tar main road with a chowk, a cement (CC) road, six gullies with open drains, a Shiv Mandir with a well, a peepal chabutra (the den), a talab with a ghat, a chai tapri, a kirana store, a school, a cattle shed, fields and a water tank.
 - 11 buildings with the roof cut off so you can see inside: beds, charpais, almirahs, kitchen counters, gas cylinders, matkas, TVs, coolers, puja shelves, tulsi pots and hand pumps.
 - Night lighting: sodium street lamps, tube lights in the gullies (two flicker), room bulbs, TV glow and diyas. Some rooms are dark (a sleeping family, the closed school, the godown), which makes them good hiding places. A **Power cut** switch leaves only diyas and the chai lantern.
