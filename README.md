@@ -1,22 +1,93 @@
-# Chhupan Chhupai (छुपन छुपाई)
+<div align="center">
 
-Two local AI agents, **Arjun** and **Meera**, play hide and seek in an Indian village at night. You watch from above, like Clash of Clans (isometric 2.5D), with the roofs cut off so you can see inside the houses. One hides, one seeks; both think out loud, speak, and remember earlier rounds. You predict who wins.
+<img src="docs/logo.svg" width="96" alt="Chhupan Chhupai logo" />
 
-The real point of the project is **measuring**: does the AI, a bigger model, memory or the abilities actually change who wins? Hundreds of rounds were played headless to find out (results below).
+# Chhupan Chhupai
 
-Everything runs on one MacBook: the models are qwen3:8b and qwen3:14b through [Ollama](https://ollama.com), the voices are the Mac's own, and nothing leaves the machine.
+<sub>छुपन छुपाई · hide and seek</sub>
 
-![The whole village at night: houses with the roofs cut off, street lights, the pond, the minimap and the side panel](docs/screenshots/village.jpg)
+**Two AI agents play hide and seek in an Indian village at night.** They think out loud, speak, remember earlier rounds and try to outsmart each other, all on one MacBook, with no cloud and no API keys.
+
+[![CI](https://github.com/gangireddymayur/chhupan-chhupai/actions/workflows/ci.yml/badge.svg)](https://github.com/gangireddymayur/chhupan-chhupai/actions/workflows/ci.yml)
+![Ollama](https://img.shields.io/badge/AI-Ollama%20%C2%B7%20qwen3%208b%20%26%2014b-000000?logo=ollama&logoColor=white)
+![JavaScript](https://img.shields.io/badge/game-plain%20JavaScript%20%C2%B7%20no%20build-f7df1e?logo=javascript&logoColor=black)
+![Python](https://img.shields.io/badge/server-Python%203-3776ab?logo=python&logoColor=white)
+![Measured](https://img.shields.io/badge/measured-1%2C300%20rounds-ff8a5b)
+![License](https://img.shields.io/badge/license-MIT-2ea44f)
+
+<br/>
+
+<a href="docs/demo.mp4"><img src="docs/screenshots/video-preview.jpg" width="88%" alt="Play the demo video: one full round with the agents' voices" /></a>
+
+<sub>A real round, recorded with the game's own Record button: Arjun hides, Meera counts and searches. Click to play (1:28, with sound).</sub>
+
+<br/><br/>
+
+<img src="docs/screenshots/hider-decides.jpg" width="32%" alt="The hider decides where to hide" />
+<img src="docs/screenshots/seeker-searches.jpg" width="32%" alt="The seeker thinks about where to search" />
+<img src="docs/screenshots/seeker-wins.jpg" width="32%" alt="The seeker finds the hider" />
+
+<sub>The hider decides, the seeker thinks out loud, and the catch.</sub>
+
+</div>
+
+---
+
+## Why this project
+
+Most agent demos show one good run. This one asks a harder question: **does any of it actually work?** Does the AI play better than simple rules, does a bigger model help, does memory help, do the abilities matter? The game is the test bench; the answers come from 1,300 rounds played headless with the real rules and the real models.
+
+## At a glance
+
+| | |
+|---|---|
+| **Agents** | Arjun (boy) and Meera (girl). One hides, one counts to 30 and seeks. |
+| **Brains** | qwen3:8b (about 1 s per decision) or qwen3:14b (3 to 7 s) through Ollama, or simple scripted rules |
+| **Voices** | The Mac's own voices (Rishi and Isha), taking turns, never overlapping |
+| **Memory** | Each agent is reminded of its last 0 to 5 rounds |
+| **World** | A 36 x 36 tile isometric village at night: gullies, chai tapri, temple, pond, 59 lights, 12 hiding spots |
+| **Fairness** | The model only picks from a list; the game's rules decide who sees whom, so it cannot cheat |
+| **Hardware** | Built and measured on a MacBook Pro, Apple M5 Pro, 24 GB |
+| **Install** | No npm, no build: one Python file serves the game |
 
 ## Run it
 
-```bash
-ollama pull qwen3:8b            # optional: without Ollama the agents use simple scripted rules
-ollama pull qwen3:14b           # optional: the bigger, slower brain
-python3 server.py
-```
+**You need:** Python 3, a modern browser (Chrome for recording), and optionally [Ollama](https://ollama.com). The voices are best on a Mac; on other systems the browser's own speech is used.
 
-Then open http://127.0.0.1:8790 in a browser. `server.py` serves the game (JavaScript modules need a server) and, on a Mac, speaks the agents' lines with the Mac's own voices through the `say` command, so the voices work in every browser. It listens on 127.0.0.1 only. No `npm install`, no build step: plain JavaScript and one small Python file.
+1. **Get the code**
+
+   ```bash
+   git clone https://github.com/gangireddymayur/chhupan-chhupai.git
+   cd chhupan-chhupai
+   ```
+
+2. **Get the AI models** (optional; without them the agents use simple scripted rules)
+
+   ```bash
+   ollama pull qwen3:8b
+   ollama pull qwen3:14b
+   ```
+
+   Ollama must be running (the Ollama app, or `ollama serve`). The game finds it at `http://127.0.0.1:11434`.
+
+3. **Start the game**
+
+   ```bash
+   python3 server.py
+   ```
+
+   Then open **http://127.0.0.1:8790**. The server only listens on your own machine.
+
+4. **Better voices on a Mac** (optional): System Settings → Accessibility → Read & Speak → System voice → ⓘ → Voice → English (India), and download **Rishi (Enhanced)** and **Isha (Premium)**. Press **🔊 Test voices** in the game to check.
+
+**If something does not work**
+
+| Problem | Fix |
+|---|---|
+| The round card says "Ollama not found · scripted brains" | Start Ollama, then reload the page. The game still works with scripted brains. |
+| No voices | Make sure `server.py` is running and **Voices** is on, then press **🔊 Test voices**. Click the page once (browsers block sound until you do). |
+| The page is blank or old | Reload with Cmd+Shift+R. |
+| Port 8790 is busy | Stop the other copy of `server.py`. |
 
 ## How to play
 
@@ -161,7 +232,8 @@ Limits: the 14b comparisons are only 20 rounds each; everything is about this ga
 | `src/app.js` | Camera, minimap, panels, predictions, replay and recording |
 | `eval/` | Headless runner, report, development log, trace recorder and round picker |
 | `video/` | Replay data and audio for rendered videos (generated, not committed) |
-| `docs/screenshots/` | The pictures in this README |
+| `docs/` | The pictures, the logo and the demo video in this README |
+| `.github/workflows/ci.yml` | The checks that run on every push |
 
 The rules work on the plain grid in `village.js`; the drawing is separate, so the look can change without touching the rules.
 
@@ -173,6 +245,40 @@ The rules work on the plain grid in `village.js`; the drawing is separate, so th
 - The voices need a Mac for the best quality; other systems fall back to the browser's speech.
 - The Mac's voices are clear but still synthetic.
 
+## Measure it yourself
+
+Needs Node.js 18 or newer. Experiments with AI brains need Ollama running.
+
+```bash
+node eval/run.mjs scripted-vs-scripted        # one experiment (the list is at the top of eval/run.mjs)
+bash eval/run_all.sh                          # every experiment, the full measurement
+node eval/report.mjs                          # the results table with 95% ranges
+```
+
+Every round is one line in `eval/results.jsonl`, so a stopped run loses nothing.
+
+## Tests and CI
+
+On every push, GitHub Actions checks that every JavaScript file parses and the server compiles, then plays **50 headless rounds** with the real rules (scripted brains, no Ollama needed) and builds the results report from the saved data.
+
+## Credits
+
+- **Qwen3** language models by the Qwen team at Alibaba (Apache 2.0), run locally with **[Ollama](https://ollama.com)**.
+- **Voices**: Apple's built-in macOS voices (Rishi and Isha) through the `say` command.
+- **Fonts**: Baloo 2 and Inter, from Google Fonts (SIL Open Font License).
+- **Statistics**: Wilson score intervals for the 95% ranges; a two-proportion z-test for comparisons.
+- The village, the art and the game are drawn in code on an HTML canvas; no image assets, no game engine, no libraries.
+
 ## License
 
-MIT
+Released under the [MIT License](LICENSE).
+
+---
+
+<div align="center">
+
+**Designed and developed by [Mayur Gangireddy](https://github.com/gangireddymayur)**
+
+© 2026 Mayur Gangireddy
+
+</div>
