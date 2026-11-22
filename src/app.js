@@ -7,7 +7,7 @@ import { makeBlockGrid } from './sim.js';
 import { lightMap, makeSightGrid, visibleTiles } from './rules.js';
 import { ollamaModels } from './agents.js';
 import { Game, SEEK_TIMES } from './game.js';
-import { speak, stopSpeaking, voiceName, countAloud, onVoiceProblem, checkRemote } from './voice.js';
+import { speak, stopSpeaking, voiceName, countAloud, onVoiceProblem, checkRemote, audioTap } from './voice.js';
 import { Mp4Writer } from './mp4.js';
 
 const village = buildVillage();
@@ -237,109 +237,122 @@ bindToggle('tg-labels', 'labels'); bindToggle('tg-hides', 'hides'); bindToggle('
 bindToggle('tg-power', 'power', relight);
 
 // ---------------------------------------------------------------- record the game tab, with the voices
-// Chrome asks which tab to share: pick THIS tab and keep "Also share tab audio" ticked. The voices come from the Mac voice server
-// as normal page audio, so they end up in the recording. Press the button again (or "Stop sharing") to finish.
-// The frames and sound are compressed with the browser's own encoders and written by src/mp4.js into a NORMAL mp4: Chrome's
-// built-in recorder writes a "fragmented" mp4 that Mac players show as a frozen picture. The file is saved in video/ and downloaded.
+// Chrome asks which tab to share: pick THIS tab ("Chhupan Chhupai"). Press ⏹ Stop (or "Stop sharing") to finish.
+// Sound: the voices are played through one audio context and fed straight into the recording, so nothing has to be ticked
+// in the share window and silence between lines is recorded as silence (the sound never drifts from the picture).
+// Frames and sound are compressed with the browser's own encoders (WebCodecs) and written by src/mp4.js into a NORMAL mp4
+// (Chrome's built-in recorder writes one that QuickTime shows as a frozen picture). Saved in video/ and in Downloads.
 let screenRec = null;
-async function startScreenRecording() {
-  let stream;
-  try {
-    stream = await navigator.mediaDevices.getDisplayMedia({
-      video: { frameRate: 30, displaySurface: 'browser' }, audio: true,
-      preferCurrentTab: true, selfBrowserSurface: 'include', surfaceSwitching: 'exclude', systemAudio: 'exclude',
-    });
-  } catch (e) { addLog('Recording not started (the share window was closed).'); return; }
-  return recordStream(stream);
+function startScreenRecording() {
+  if (!window.VideoEncoder || !window.MediaStreamTrackProcessor) { addLog('Recording needs Google Chrome (or Edge).'); return; }
+  // the audio context must be made during the click
+  if (!audioTap.ctx) audioTap.ctx = new AudioContext({ sampleRate: 48000 });
+  audioTap.ctx.resume();
+  navigator.mediaDevices.getDisplayMedia({
+    video: { frameRate: 30, displaySurface: 'browser' }, audio: false,
+    preferCurrentTab: true, selfBrowserSurface: 'include', surfaceSwitching: 'exclude',
+  }).then((stream) => recordStream(stream).catch((e) => { screenRec = null; setRecButton(false); addLog(`Recording failed: ${e.message || e}`); }),
+    () => addLog('Recording not started (the share window was closed).'));
 }
 async function recordStream(stream) {
-  const vTrack = stream.getVideoTracks()[0], aTrack = stream.getAudioTracks()[0];
-  if (!aTrack) addLog('Recording WITHOUT sound: next time keep "Also share tab audio" ticked in the share window.');
+  const ctx = audioTap.ctx, dest = ctx.createMediaStreamDestination();
+  audioTap.node = dest;
+  const vTrack = stream.getVideoTracks()[0], aTrack = dest.stream.getAudioTracks()[0];
   const st = vTrack.getSettings();
   const scale = Math.min(1, 1920 / (st.width || 1920));
   const W = Math.round(((st.width || 1920) * scale) / 2) * 2, H = Math.round(((st.height || 1080) * scale) / 2) * 2;
-  const TS = 90000; // video time units per second
-  let writer = null, venc = null, aenc = null, t0 = null, prev = null, frames = 0, failed = null;
+  const TS = 90000, sr = ctx.sampleRate, ch = 2; // video time units per second; sound format
+  const writer = new Mp4Writer({ width: W, height: H, fps: 30, sampleRate: sr, channels: ch, videoTimescale: TS });
+  let failed = null, frames = 0, prev = null, t0 = null, pictureFrom = 0;
   const fail = (e) => { failed = failed || String((e && e.message) || e); };
-  const canvasScaled = new OffscreenCanvas(W, H), cx = canvasScaled.getContext('2d');
-  const started = Date.now();
-  const rec = { stopping: false, stop: () => { rec.stopping = true; } };
-  screenRec = rec; setRecButton(true, started);
-  addLog(aTrack ? `Recording this tab with sound (${W}×${H}). Press ⏹ Stop to finish.` : `Recording this tab without sound (${W}×${H}).`);
-  vTrack.addEventListener('ended', () => rec.stop()); // "Stop sharing"
-
-  // the first audio packet tells us the real sample rate and channels
-  const aReader = aTrack ? new MediaStreamTrackProcessor({ track: aTrack }).readable.getReader() : null;
   const vReader = new MediaStreamTrackProcessor({ track: vTrack }).readable.getReader();
-  let firstAudio = null;
-  if (aReader) { const r = await aReader.read(); firstAudio = r.value; }
-  const sr = firstAudio ? firstAudio.sampleRate : 48000, ch = firstAudio ? Math.min(2, firstAudio.numberOfChannels) : 2;
-  writer = new Mp4Writer({ width: W, height: H, fps: 30, sampleRate: sr, channels: ch, videoTimescale: TS });
-  const stamps = []; // real time of each frame, so each frame lasts exactly until the next one (picture and sound stay together)
-  venc = new VideoEncoder({ output: (chunk, meta) => { const b = new Uint8Array(chunk.byteLength); chunk.copyTo(b); stamps.push(chunk.timestamp); writer.addVideo(b, chunk.type === 'key', meta, TS / 30); }, error: fail });
-  venc.configure({ codec: W * H > 2_100_000 ? 'avc1.640033' : 'avc1.640028', width: W, height: H, bitrate: 6_000_000, framerate: 30, latencyMode: 'realtime', avc: { format: 'avc' } });
-  if (aReader) {
-    aenc = new AudioEncoder({ output: (chunk, meta) => { const b = new Uint8Array(chunk.byteLength); chunk.copyTo(b); writer.addAudio(b, meta); }, error: fail });
-    aenc.configure({ codec: 'mp4a.40.2', sampleRate: sr, numberOfChannels: ch, bitrate: 160_000 });
-  }
+  const aReader = new MediaStreamTrackProcessor({ track: aTrack }).readable.getReader();
+  const started = Date.now();
+  // Stop: cancelling the readers ends any read that is waiting, so stopping always works
+  const rec = {
+    stopping: false,
+    stop: () => {
+      if (rec.stopping) return; rec.stopping = true;
+      $('rec-btn').textContent = 'Saving…'; addLog('Saving the recording…');
+      vReader.cancel().catch(() => {}); aReader.cancel().catch(() => {});
+      stream.getTracks().forEach((t) => t.stop());
+    },
+  };
+  screenRec = rec; setRecButton(true, started);
+  vTrack.addEventListener('ended', () => rec.stop()); // "Stop sharing"
+  addLog(`Recording (${W}×${H}) with the voices. Press ⏹ Stop to finish.`);
+  if (ctx.state !== 'running') addLog('Sound is paused by the browser: click anywhere on the page once.');
 
-  // sound: encode everything from the moment the first picture arrives
+  const stamps = []; // the real time of each frame, so each frame lasts until the next one
+  const venc = new VideoEncoder({ output: (chunk, meta) => { const b = new Uint8Array(chunk.byteLength); chunk.copyTo(b); stamps.push(chunk.timestamp); writer.addVideo(b, chunk.type === 'key', meta, TS / 30); }, error: fail });
+  venc.configure({ codec: W * H > 2_100_000 ? 'avc1.640033' : 'avc1.640028', width: W, height: H, bitrate: 6_000_000, framerate: 30, latencyMode: 'realtime', avc: { format: 'avc' } });
+  const aenc = new AudioEncoder({ output: (chunk, meta) => { const b = new Uint8Array(chunk.byteLength); chunk.copyTo(b); writer.addAudio(b, meta); }, error: fail });
+  aenc.configure({ codec: 'mp4a.40.2', sampleRate: sr, numberOfChannels: ch, bitrate: 160_000 });
+
+  // sound: a steady stream (silence included); kept from the moment the first picture arrives
+  // a silent signal keeps the sound flowing even before the first voice plays
+  const keep = ctx.createConstantSource(); keep.offset.value = 0; keep.connect(dest); keep.start();
+  let soundFrom = null; // wall time of the first sound kept
   const audioLoop = (async () => {
-    let ad = firstAudio;
-    while (ad && !rec.stopping) {
-      if (t0 !== null && ad.timestamp >= t0) {
-        const copy = ch === ad.numberOfChannels ? ad : null;
-        if (copy) aenc.encode(copy);
-        else { // mono/extra channels: keep the first ch channels
-          const n = ad.numberOfFrames, data = new Float32Array(n * ch);
-          for (let c = 0; c < ch; c++) ad.copyTo(data.subarray(c * n, (c + 1) * n), { planeIndex: Math.min(c, ad.numberOfChannels - 1), format: 'f32-planar' });
-          aenc.encode(new AudioData({ format: 'f32-planar', sampleRate: sr, numberOfFrames: n, numberOfChannels: ch, timestamp: ad.timestamp, data }));
+    for (;;) {
+      const r = await aReader.read().catch(() => ({ done: true })); if (r.done) break;
+      const ad = r.value;
+      if (t0 !== null && !rec.stopping && aenc.state === 'configured') {
+        if (soundFrom === null) { // if the sound starts later than the picture, fill the gap with silence so they stay together
+          soundFrom = performance.now();
+          const gap = Math.round(((soundFrom - pictureFrom) / 1000) * sr) - ad.numberOfFrames;
+          if (gap > sr / 20) aenc.encode(new AudioData({ format: 'f32-planar', sampleRate: sr, numberOfFrames: gap, numberOfChannels: ch, timestamp: 0, data: new Float32Array(gap * ch) }));
         }
+        aenc.encode(ad);
       }
       ad.close();
-      const r = await aReader.read(); ad = r.done ? null : r.value;
     }
-    if (ad) ad.close();
   })();
 
-  // pictures: scale to at most 1920 wide, give each frame its real duration
-  while (!rec.stopping) {
-    const r = await vReader.read(); if (r.done) break;
+  // pictures: at most 1920 wide, each with its real time
+  const canvasScaled = new OffscreenCanvas(W, H), cx = canvasScaled.getContext('2d');
+  for (;;) {
+    const r = await vReader.read().catch(() => ({ done: true })); if (r.done) break;
     const f = r.value;
-    if (t0 === null) t0 = f.timestamp;
-    cx.drawImage(f, 0, 0, W, H);
-    const ts = f.timestamp - t0; f.close();
-    if (prev !== null && ts - prev < 15000) continue; // more than about 60 frames a second: skip
+    if (rec.stopping) { f.close(); break; }
+    if (t0 === null) { t0 = f.timestamp; pictureFrom = performance.now(); }
+    const ts = f.timestamp - t0;
+    if (prev !== null && ts - prev < 15000) { f.close(); continue; } // more than about 60 frames a second: skip
+    cx.drawImage(f, 0, 0, W, H); f.close();
     const vf = new VideoFrame(canvasScaled, { timestamp: ts, duration: 33333 });
-    venc.encode(vf, { keyFrame: frames % 60 === 0 }); vf.close();
-    prev = ts; frames++;
+    if (venc.state === 'configured') venc.encode(vf, { keyFrame: frames % 60 === 0 });
+    vf.close(); prev = ts; frames++;
     if (venc.encodeQueueSize > 8) await new Promise((res) => setTimeout(res, 5));
   }
 
-  // finish
-  stream.getTracks().forEach((t) => t.stop());
-  try { vReader.cancel(); } catch (e) { /* ignore */ }
-  try { aReader && aReader.cancel(); } catch (e) { /* ignore */ }
-  await audioLoop.catch(() => {});
-  try { await venc.flush(); if (aenc) await aenc.flush(); } catch (e) { fail(e); }
+  // finish and save
+  rec.stop();
+  await audioLoop;
+  audioTap.node = null; keep.stop(); keep.disconnect();
+  try { await venc.flush(); await aenc.flush(); } catch (e) { fail(e); }
+  try { venc.close(); aenc.close(); } catch (e) { /* already closed */ }
   for (let k = 0; k + 1 < writer.video.length; k++) writer.video[k].dur = Math.max(1, ((stamps[k + 1] - stamps[k]) * TS) / 1e6);
   screenRec = null; setRecButton(false);
   if (failed) { addLog(`Recording failed: ${failed}`); return; }
+  if (!writer.video.length) { addLog('Recording failed: no picture arrived. Share THIS tab and try again.'); return; }
+  if (!writer.asc) writer.asc = Uint8Array.from([0x11, 0x90]); // no sound packets at all
   let bytes;
   try { bytes = writer.finish(); } catch (e) { addLog(`Recording failed: ${e.message}`); return; }
   const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
   const name = `game-recording-${stamp}.mp4`, secs = Math.round((Date.now() - started) / 1000);
   const blob = new Blob([bytes], { type: 'video/mp4' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); // also into Downloads
-  try { await fetch(`/save?name=${encodeURIComponent(name)}`, { method: 'POST', body: blob }); addLog(`Recording saved (${secs} s, ${(blob.size / 1e6).toFixed(0)} MB, ${frames} frames): video/${name}`); }
-  catch { addLog(`Recording downloaded (${secs} s): ${name}`); }
+  let saved = false;
+  try { const r = await fetch(`/save?name=${encodeURIComponent(name)}`, { method: 'POST', body: blob }); saved = r.ok; } catch (e) { /* not saved on the server */ }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  addLog(`Recording ${saved ? 'saved' : 'downloaded'} (${secs} s, ${(blob.size / 1e6).toFixed(0)} MB, ${frames} frames): ${saved ? `video/${name} and ` : ''}Downloads/${name}`);
 }
 let recTimer = null;
 function setRecButton(on, started) {
   const b = $('rec-btn');
   b.classList.toggle('on', on); b.setAttribute('aria-pressed', on);
   clearInterval(recTimer);
-  if (on) { const tick = () => { const s = Math.round((Date.now() - started) / 1000); b.textContent = `⏹ Stop ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }; tick(); recTimer = setInterval(tick, 500); }
+  if (on) { const tick = () => { if (screenRec && screenRec.stopping) { b.textContent = 'Saving…'; return; } const s = Math.round((Date.now() - started) / 1000); b.textContent = `⏹ Stop ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }; tick(); recTimer = setInterval(tick, 500); }
   else b.textContent = '⏺ Record';
 }
 $('rec-btn').onclick = () => { if (screenRec) screenRec.stop(); else startScreenRecording(); };

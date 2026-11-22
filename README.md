@@ -142,7 +142,7 @@ Limits: the 14b comparisons are only 20 rounds each; everything is about this ga
 ## Recording
 
 - **Watch mode** hides the panels for a clean screen.
-- **⏺ Record** (Chrome) asks which tab or screen to share, then records it with the voices into a normal MP4, saved in `video/` and in Downloads. It uses the browser's own encoder (WebCodecs) and a small MP4 writer in `src/mp4.js`, no libraries.
+- **⏺ Record** (Chrome or Edge): pick this tab in the share window, play, then press **⏹ Stop** (or Chrome's "Stop sharing"). The button shows "Saving…" and the MP4 lands in `video/` and in Downloads. The voices are fed straight into the recording, so there is nothing to tick in the share window, and silence is recorded as silence, so sound and picture stay together. It uses the browser's own encoders (WebCodecs) and a small MP4 writer in `src/mp4.js`, no libraries; QuickTime plays the result.
 - `eval/trace.mjs`, `eval/select.mjs` and `eval/story.mjs` can also replay real AI rounds frame by frame into a short video (`?replay=...&offline=1`), with only the key lines voiced. Those videos are hand-picked rounds, not typical ones.
 
 ## Files

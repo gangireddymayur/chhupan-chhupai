@@ -26,12 +26,24 @@ export async function checkRemote() {
   return remote;
 }
 let audio = null;
+// The recorder sets ctx and node: every voice clip is then played through that audio context, both to the speakers and into
+// the recording, so the recording gets the voices directly (no "share tab audio" needed).
+export const audioTap = { ctx: null, node: null };
+function route(a) {
+  const { ctx, node } = audioTap;
+  if (!ctx) return;
+  try {
+    const g = ctx.createGain(); g.gain.value = a.volume; a.volume = 1; // the volume is applied once, in the audio graph
+    ctx.createMediaElementSource(a).connect(g);
+    g.connect(ctx.destination); if (node) g.connect(node);
+  } catch (e) { /* plays normally */ }
+}
 function playRemote(item, done, fail) {
   const url = `/tts?voice=${item.kind}${item.sayRate ? `&rate=${item.sayRate}` : ''}&text=${encodeURIComponent(item.text)}`;
   fetch(url).then((r) => { if (!r.ok) throw new Error(`voice server ${r.status}`); return r.blob(); }).then((blob) => {
     if (item.cancelled) return null;
     const a = new Audio(URL.createObjectURL(blob));
-    a.volume = item.volume ?? 1; audio = a;
+    a.volume = item.volume ?? 1; audio = a; route(a);
     let iv = null;
     if (item.onProgress) iv = setInterval(() => { if (a.duration) item.onProgress(a.currentTime / a.duration); }, 80);
     a.onended = () => { clearInterval(iv); URL.revokeObjectURL(a.src); if (audio === a) audio = null; done(); };
