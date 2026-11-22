@@ -17,7 +17,7 @@
 
 <br/>
 
-<a href="docs/demo.mp4"><img src="docs/screenshots/video-preview.jpg" width="88%" alt="Play the demo video: one full round with the agents' voices" /></a>
+<a href="https://gangireddymayur.github.io/chhupan-chhupai/"><img src="docs/screenshots/video-preview.jpg" width="88%" alt="Play the demo video: one full round with the agents' voices" /></a>
 
 <sub>A real round, recorded with the game's own Record button: Arjun hides, Meera counts and searches. Click to play (1:28, with sound).</sub>
 
