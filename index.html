@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chhupan Chhupai</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">
+          <svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="#1b2347"/><path d="M6 19c3-5 7-7 10-7s7 2 10 7c-3 3-6 4-10 4s-7-1-10-4z" fill="#ffd166"/><circle cx="16" cy="18" r="4" fill="#1b2347"/><circle cx="17.3" cy="16.8" r="1.3" fill="#fff"/></svg>
+        </div>
+        <div>
+          <h1>Chhupan Chhupai</h1>
+          <p><span lang="hi">छुपन छुपाई</span> · Rampur village · night</p>
+        </div>
+      </div>
+      <div class="controls">
+        <span class="chip clock" title="Game time"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.2A6 6 0 1 0 13.8 10 5 5 0 0 1 10.5 2.2z" fill="currentColor"/></svg><b id="clock">9:40 PM</b></span>
+        <div class="segs" id="walls" role="radiogroup" aria-label="Wall style">
+          <span>Walls</span>
+          <button role="radio" data-w="cut" aria-checked="true" title="Back walls tall, front walls low">Cutaway</button>
+          <button role="radio" data-w="full" aria-checked="false" title="All walls full height">Full</button>
+          <button role="radio" data-w="low" aria-checked="false" title="All walls low">Low</button>
+        </div>
+        <button class="toggle on" id="tg-voices" aria-pressed="true">Voices</button>
+        <button class="toggle on" id="tg-bubbles" aria-pressed="true">Thought bubbles</button>
+        <button class="toggle on" id="tg-eyes" aria-pressed="true" title="Red tint: where the seeker can see right now">Seeker's sight</button>
+        <button class="toggle on" id="tg-labels" aria-pressed="true">Place names</button>
+        <button class="toggle" id="tg-hides" aria-pressed="false">Hiding spots</button>
+        <button class="toggle warn" id="tg-power" aria-pressed="false">Power cut</button>
+        <button class="toggle" id="tg-watch" aria-pressed="false" title="Hide the panels for a clean screen recording (Esc to leave)">Watch mode</button>
+        <button class="toggle rec" id="rec-btn" aria-pressed="false" title="Record this game tab with the voices (version 2: normal MP4); saved in the project's video folder and Downloads">⏺ Record</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="stage" id="stage">
+        <canvas id="world" aria-label="Isometric map of Rampur village at night"></canvas>
+        <div class="tooltip" id="tooltip" hidden></div>
+        <div class="banner" id="banner" role="status" hidden></div>
+        <div class="caption" id="caption" hidden></div>
+        <button class="exitwatch" id="exitwatch" hidden>Exit watch mode</button>
+        <div class="hint">Drag to move · Scroll to zoom · Hover anything</div>
+        <div class="segs cam" id="camctl" role="radiogroup" aria-label="Camera">
+          <span>Camera</span>
+          <button role="radio" data-cam="free" aria-checked="true">Free</button>
+          <button role="radio" data-cam="seeker" aria-checked="false">Seeker</button>
+          <button role="radio" data-cam="hider" aria-checked="false">Hider</button>
+          <button role="radio" data-cam="auto" aria-checked="false" title="Zooms and moves by itself to show the best view">Auto</button>
+        </div>
+        <div class="minimap" id="minimap">
+          <canvas id="mini" aria-label="Minimap: the whole village, the seeker (red) and the hider (teal)"></canvas>
+          <button id="mapsize" aria-label="Make the map big">⤢</button>
+        </div>
+        <div class="zoom">
+          <button id="rotl" aria-label="Turn the view left" title="Turn the village (see it from another side)">⟲</button>
+          <button id="rotr" aria-label="Turn the view right" title="Turn the village (see it from another side)">⟳</button>
+          <button id="zin" aria-label="Zoom in">+</button>
+          <button id="zout" aria-label="Zoom out">−</button>
+          <button id="zden" aria-label="Go to the den" title="Go to the den">⌖</button>
+        </div>
+        <div class="legend">
+          <span><i style="--c:#ffb35c"></i>Sodium lamp</span>
+          <span><i style="--c:#cffff0"></i>Tube light</span>
+          <span><i style="--c:#ffd59a"></i>Room bulb</span>
+          <span><i style="--c:#ff9d3d"></i>Diya</span>
+        </div>
+      </section>
+
+      <aside class="side">
+        <section class="card round" id="roundcard" aria-live="polite"></section>
+
+        <div id="agents"></div>
+
+        <section class="card log">
+          <div class="row"><h2>Round log</h2></div>
+          <ol id="log"></ol>
+        </section>
+      </aside>
+    </main>
+  </div>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>

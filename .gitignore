@@ -1,0 +1,16 @@
+# generated: video rounds, audio, test output and logs
+video/traces/
+video/audio/
+video/best.json
+video/*.mp4
+video/*.png
+eval/run.log
+eval/pilot.jsonl
+eval/pilot.log
+node_modules/
+.DS_Store
+.claude/
+video/story.json
+video/*.log
+video/*.webm
+tools/
